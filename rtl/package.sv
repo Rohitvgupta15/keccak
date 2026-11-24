@@ -1,0 +1,6 @@
+`include "rtl/keccak_theta.sv"
+`include "rtl/keccak_rho.sv"
+`include "rtl/keccak_pi.sv"
+`include "rtl/keccak_chi.sv"
+`include "rtl/keccak_iota.sv"
+`include "rtl/keccak_one_round.sv"
