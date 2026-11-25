@@ -18,3 +18,10 @@ keccak_round :
 
 clean : 
 	  rm -rf *.vcd *.log simv *.key csrc *.daidir simv.vdb vcs
+
+keccak_sponge :
+		vcs -full64 -sverilog \
+		+define+keccak_sponge \
+		rtl/keccak_sponge.sv \
+		rtl/package.sv  \
+		-o simv ; ./simv
