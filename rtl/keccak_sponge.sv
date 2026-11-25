@@ -35,7 +35,6 @@ reg           start_keccak_round;
 reg           last_blk;
 wire [1599:0] keccak_round_out;
 wire          keccak_round_done;
-wire          busy;
 
 message_padding #(
     .STATE_W  (STATE_W),           // b : Keccak state width
@@ -62,8 +61,7 @@ keccak_round S3(
     .start      (start_keccak_round),
     .state_in   (absorb_out),   
     .state_out  (keccak_round_out),              
-    .done       (keccak_round_done),
-    .busy       (busy)             
+    .done       (keccak_round_done)
 );
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
