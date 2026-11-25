@@ -10,7 +10,6 @@ module keccak_round (
     wire [1599:0] next_state;
     reg  [4:0]    round;
     reg           busy;
-
     keccak_one_round u1(
         .state_in(state),
         .round(round),
@@ -53,6 +52,7 @@ reg start;
 reg  [1599:0] state_in;
 wire [1599:0] state_out;
 wire done;
+wire busy;
 
 keccak_round q1(
     clk,
