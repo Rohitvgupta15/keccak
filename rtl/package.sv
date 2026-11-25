@@ -4,3 +4,6 @@
 `include "rtl/keccak_chi.sv"
 `include "rtl/keccak_iota.sv"
 `include "rtl/keccak_one_round.sv"
+`include "rtl/keccak_round.sv"
+`include "rtl/keccak_absorb.sv"
+`include "rtl/message_padding.sv"

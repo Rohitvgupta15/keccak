@@ -21,7 +21,6 @@ module message_padding #(
     input  wire                 clk,
     input  wire                 rst_n,
     input  wire [LEN_W-1:0]     msg_bytes,       // message length in bytes
-    // control / handshake
     input  wire                 start,
     input  wire                 absorb_ready,    // keccak core can take a block
     output reg  [STATE_W-1:0]   m,               // padded block
@@ -113,7 +112,7 @@ module message_padding #(
 
 endmodule
 
-
+`ifdef messagepadding
 // =========================================================
 // Testbench (simulation only)
 // =========================================================
@@ -162,7 +161,10 @@ module tb_keccak;
         if (blk_valid)
             $display("[%0t] last=%0b\nm(r) = (0x%h)\n",$time, blk_last, m[RATE-1:0]);
     end
-
+    initial begin
+        $fsdbdumpfile("tb.fsdb");
+        $fsdbdumpvars(0, tb_keccak);
+    end
     // ---------------- stimulus ----------------
     initial begin
         clk          = 0;
@@ -188,3 +190,4 @@ module tb_keccak;
     end
 
 endmodule
+`endif
