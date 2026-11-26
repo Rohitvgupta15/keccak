@@ -65,32 +65,23 @@ module message_padding #(
     // Build block for current count (full or padded last)
     // =====================================================
     
-    always @(*) begin
-        next_blk = {STATE_W{1'b0}};                     // capacity = 0
-        if(count< num_blocks) begin
-            for (k = 0; k < RATE_BYTES; k = k + 1) begin
-            // k-th message byte of the current block
-                pad_byte = rom[count*RATE_WORDS + k/BYTES_PER_WORD]
-                          [(k % BYTES_PER_WORD)*8 +: 8];
-                next_blk[k*8 +: 8] = pad_byte;
-             end
-              
-        end
-        else if(count == num_blocks)begin
-            for (k = 0; k < msg_len; k = k + 1) begin
-            // k-th message byte of the current block
-                next_blk[k] = rom[count*17 + (k / 64)][k % 64];
-             end
-            next_blk[msg_len]     = 1'b0;
-            next_blk[msg_len + 1] = 1'b1;
-            next_blk[msg_len + 2] = 1'b1;
+ reg [RATE-1:0] data_blk;
+integer w;
 
-            // Final bit of the 1088-bit rate is always XORed with 1'b1
-            // (If msg_len == 1085, msg_len+2 is already 1087, which stays 1'b1)
-            next_blk[RATE - 1] = 1'b1;
-        end
-        
-    end
+always @(*) begin
+    // 1. grab 17 words of the current block (same as a full block)
+    for (w = 0; w < RATE_WORDS; w = w + 1)
+        data_blk[w*64 +: 64] = rom[count*RATE_WORDS + w];
+
+    next_blk = {STATE_W{1'b0}};
+    if (count < num_blocks)
+        next_blk[RATE-1:0] = data_blk;                         // full block
+    else
+        next_blk[RATE-1:0] =
+              (data_blk & ~({RATE{1'b1}} << msg_len))          // keep msg_len bits, zero the rest (kills x)
+            | ({{(RATE-3){1'b0}}, 3'b110} << msg_len)          // "0,1,1" suffix + first pad bit
+            | ({1'b1, {(RATE-1){1'b0}}});                      // final pad bit at RATE-1
+end
 
     // =====================================================
     // Handshake : hold block until (blk_valid && absorb_ready)
