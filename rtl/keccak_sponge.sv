@@ -6,11 +6,11 @@ module keccak_sponge#(
     parameter MAX_WORDS = 64,                   // ROM depth (in LANE_W words)
     parameter [7:0] DSUFFIX  = 8'h06,           // SHA3 domain suffix
     parameter [7:0] PAD_LAST = 8'h80,            // final pad bit
-    parameter LEN_W     = $clog2(MAX_WORDS * LANE_W/8 + 1)  // 10
+    parameter LEN_W     = $clog2(MAX_WORDS * LANE_W + 1)  // 10
 )(
     input             clk,
     input             rst_n,
-    input [LEN_W-1:0] msg_bytes,
+    input [LEN_W-1:0] msg_bits,
     input             start,
     output            done,
     output [255:0]    hashvalue 
@@ -46,7 +46,7 @@ message_padding #(
 ) s1(
     .clk          (clk),
     .rst_n        (rst_n),
-    .msg_bytes    (msg_bytes),
+    .msg_bits    (msg_bits),
     .start        (start_message_pading),
     .absorb_ready (absorb_ready),           // keccak core can take a block
     .m            (m),                      // padded block
@@ -127,11 +127,12 @@ module tb_keccakq;
     reg                clk;
     reg                rst_n;
     reg                start;
-    reg  [9:0]         msg_bytes;
+    reg  [12:0]        msg_bits;     // Widened to hold up to 4096 bits (MAX_WORDS * LANE_W)
     wire               done;
     wire   [255:0]     hashvalue;
 
-    integer            i, j;
+    integer            i, b;
+    reg                found;
 
     keccak_sponge #(
         .STATE_W   (STATE_W),
@@ -141,7 +142,7 @@ module tb_keccakq;
     ) ks1 (
         .clk          (clk),
         .rst_n        (rst_n),
-        .msg_bytes    (msg_bytes),
+        .msg_bits    (msg_bits),    // Pass bit count directly (removed *8)
         .start        (start),
         .done         (done),
         .hashvalue    (hashvalue)
@@ -153,30 +154,42 @@ module tb_keccakq;
     //     $dumpfile("tb.vcd");
     //     $dumpvars(1, tb_keccakq);
     // end
+
     // ---------------- stimulus ----------------
     initial begin
-        clk          = 0;
-        rst_n        = 0;
-        start        = 0;
-        msg_bytes    = 0;
+        clk      = 0;
+        rst_n    = 0;
+        start    = 0;
+        msg_bits = 0;
 
-        // load message directly into DUT ROM, then count its bytes
-        $readmemh(MEM_FILE, ks1.s1.rom);
         for (i = 0; i < MAX_WORDS; i = i + 1)
-            for (j = 0; j < BPW; j = j + 1)
-                if (ks1.s1.rom[i][j*8 +: 8] !== 8'hxx)
-                    msg_bytes = msg_bytes + 1;
-        $display("message length = %0d bytes", msg_bytes);
-        
+            ks1.s1.rom[i] = {LANE_W{1'bx}};
+
+        $readmemh(MEM_FILE, ks1.s1.rom);
+
+  
+        found = 0;
+        for (i = MAX_WORDS - 1; i >= 0; i = i - 1) begin
+            for (b = LANE_W - 1; b >= 0; b = b - 1) begin
+                if (!found && (ks1.s1.rom[i][b] === 1'b1)) begin
+                    msg_bits = (i * LANE_W) + b + 1;
+                    found    = 1;
+                end
+            end
+        end
+
+        $display("message length = %0d bit", msg_bits);
+
         #10;
         rst_n = 1;
         start = 1;
         @(posedge clk);                        // FSM samples start here
         @(negedge clk) start = 0;              // drop it safely after the edge
-        // repeat () begin                       // 272 bytes -> 3 blocks
-        //     @(posedge ks1.keccak_round_done);
-        //     $display("[%0t] block done, state = %h", $time, ks1.keccak_round_out);
-        // end
+        @(posedge clk); 
+        #50;
+        $display("num block      = %h", ks1.s1.num_blocks);
+        $display("Message len    = %h", ks1.s1.msg_len);
+        $display("Absorb message = %h", ks1.absorb_out);
         wait (done);
         $display("hello");
         @(posedge clk);
@@ -185,7 +198,9 @@ module tb_keccakq;
         
         $finish;
     end
+
     always @(posedge ks1.keccak_round_done)
         $display("[%0t] block done, state = %h", $time, ks1.keccak_round_out);
+
 endmodule
 `endif
